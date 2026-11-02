@@ -1,0 +1,15 @@
+"use client";
+import { useState } from "react";
+import { Plus, Check, Bell } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+type Customer={id:string;name:string};
+type Reminder={id:string;title:string;due_at:string;completed:boolean;customer_id:string|null;customers?:{name:string}|null};
+export default function Reminders({initialReminders,customers}:{initialReminders:Reminder[];customers:Customer[]}){
+ const [rows,setRows]=useState(initialReminders);const [open,setOpen]=useState(false);const [form,setForm]=useState({title:"",due_at:"",customer_id:""});const [error,setError]=useState("");
+ async function add(e:React.FormEvent){e.preventDefault();setError("");const supabase=createClient();const {data,error}=await supabase.from("reminders").insert({title:form.title,due_at:new Date(form.due_at).toISOString(),customer_id:form.customer_id||null}).select("*,customers(name)").single();if(error){setError(error.message);return;}setRows([...rows,data]);setOpen(false);setForm({title:"",due_at:"",customer_id:""});}
+ async function toggle(r:Reminder){const supabase=createClient();const {error}=await supabase.from("reminders").update({completed:!r.completed}).eq("id",r.id);if(!error)setRows(rows.map(x=>x.id===r.id?{...x,completed:!x.completed}:x));}
+ return <><div className="card"><div className="card-head"><b>Seus lembretes</b><button className="btn" onClick={()=>setOpen(!open)}><Plus size={16}/> Novo lembrete</button></div>
+ {open&&<form onSubmit={add} style={{background:"#faf9fd",padding:16,borderRadius:12,marginBottom:16}}><label className="field">Descrição<input className="input" required value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="Ex.: ligar para confirmar pedido"/></label><label className="field">Data e hora<input className="input" type="datetime-local" required value={form.due_at} onChange={e=>setForm({...form,due_at:e.target.value})}/></label><label className="field">Cliente<select className="input" value={form.customer_id} onChange={e=>setForm({...form,customer_id:e.target.value})}><option value="">Sem cliente vinculado</option>{customers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>{error&&<p style={{color:"#b42318"}}>{error}</p>}<button className="btn">Salvar lembrete</button></form>}
+ {rows.length?rows.map(r=><div key={r.id} style={{display:"flex",gap:12,alignItems:"center",padding:"15px 3px",borderBottom:"1px solid #f0edf5"}}><button className={`btn ${r.completed?"secondary":""}`} onClick={()=>toggle(r)} aria-label="Concluir"><Check size={16}/></button><div style={{flex:1}}><div style={{fontWeight:700,textDecoration:r.completed?"line-through":"none"}}>{r.title}</div><div className="subtle">{r.customers?.name??"Sem cliente"} · {new Date(r.due_at).toLocaleString("pt-BR")}</div></div><span className="pill">{r.completed?"Concluído":"Pendente"}</span></div>):<div className="empty"><Bell size={24}/><p>Você ainda não criou lembretes.</p></div>}
+ </div></>;
+}
